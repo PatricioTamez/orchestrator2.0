@@ -1,0 +1,12 @@
+specVersion: "v1beta"
+serviceId: "orchestrator-chat"
+location: "us-central1"
+schema:
+  source: "./schema"
+  datasource:
+    postgresql:
+      database: "fdcdb"
+      cloudSql:
+        instanceId: "orchestrator-chat-fdc"
+      # schemaValidation: "COMPATIBLE"
+connectorDirs: ["./connector"]
