@@ -45,7 +45,11 @@ const Login = () => {
 
   const onSubmit = async (values: z.infer<typeof UsuarioLog>) => {
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        values.email,
+        values.password
+      );
       dispatch({ type: "SET_USER", payload: userCredential.user });
       navigate("/home");
     } catch (err) {
@@ -63,6 +67,17 @@ const Login = () => {
     }
   };
 
+  const handleMicrosoftSignIn = async () => {
+    try {
+      const provider = new GoogleAuthProvider(); // Replace with MicrosoftAuthProvider
+      const result = await signInWithPopup(auth, provider);
+      dispatch({ type: "SET_USER", payload: result.user });
+      navigate("/home");
+    } catch (err) {
+      setAuthError("Microsoft sign-in failed.");
+    }
+  };
+
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-sm bg-white shadow-lg rounded-xl p-4 space-y-4">
@@ -73,6 +88,10 @@ const Login = () => {
 
         <Button variant="outline" className="w-full" onClick={handleGoogleSignIn}>
           <span>Sign in with Google</span>
+        </Button>
+
+        <Button variant="outline" className="w-full" onClick={handleMicrosoftSignIn}>
+          <span>Sign in with Microsoft</span>
         </Button>
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -91,6 +110,18 @@ const Login = () => {
             </CardFooter>
           </Card>
         </form>
+
+        <div className="flex justify-center">
+          <p className="text-sm">
+            Don't have an account?{" "}
+            <span
+              onClick={() => navigate("/signup")}
+              className="text-blue-500 cursor-pointer"
+            >
+              Sign Up
+            </span>
+          </p>
+        </div>
       </div>
     </div>
   );
