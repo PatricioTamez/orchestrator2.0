@@ -20,7 +20,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.className} bg-muted/30`}>
         <ThemeProvider attribute="class" defaultTheme="system">
-          {children}
+          <main className="min-h-screen">
+            {children}
+          </main>
           <ChatSupport />
         </ThemeProvider>
       </body>
