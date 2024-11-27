@@ -12,6 +12,7 @@ import ChatPage from "@/pages/chat/page"
 import { useAuthContext } from "@/hooks/AuthContext";
 import { Label } from "@radix-ui/react-label";
 import { ReactNode } from "react";
+import RootLayout from './chat/layout';
 
 
 
