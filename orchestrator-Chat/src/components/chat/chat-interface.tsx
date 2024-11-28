@@ -66,8 +66,8 @@ export function ChatInterface() {
   React.useEffect(() => {
     if (!currentChatroom) return;
 
-    // Fetch messages for the selected chatroom
-    const messagesRef = ref(db, `chatrooms/${currentChatroom}`);
+    // Subscribe to the current chatroom
+    const messagesRef = ref(db, `chatrooms/${currentChatroom}/messages`);
     const unsubscribe = onValue(messagesRef, (snapshot) => {
       const data = snapshot.val();
       const loadedMessages: Message[] = data
@@ -81,7 +81,42 @@ export function ChatInterface() {
 
   const handleSendMessage = async () => {
     const user = auth.currentUser;
-    if (!user || !input.trim() || !currentChatroom) return;
+    if (!user) return;
+
+    // Check if no chatrooms exist
+    if (chatrooms.length === 0) {
+      const newChatroom = {
+        name: `Chatroom 1`,
+      };
+
+      try {
+        const chatroomId = `chatroom_${Date.now()}`;
+        await set(ref(db, `users/${user.uid}/chatrooms/${chatroomId}`), newChatroom);
+        await set(ref(db, `chatrooms/${chatroomId}`), { id: chatroomId, messages: {} });
+
+        setCurrentChatroom(chatroomId); // Automatically switch to the new chatroom
+        setChatrooms([{ id: chatroomId, ...newChatroom }]); // Update local state
+      } catch (error) {
+        console.error("Error creating chatroom:", error);
+        toast({
+          title: "Chatroom creation failed",
+          description: "Could not create the chatroom. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    if (!currentChatroom) return;
+
+    if (!input.trim()) {
+      toast({
+        title: "Empty message",
+        description: "You cannot send an empty message.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const newMessage = {
       user: user.displayName || user.email || "Anonymous",
@@ -89,8 +124,15 @@ export function ChatInterface() {
     };
 
     try {
-      const chatroomRef = ref(db, `chatrooms/${currentChatroom}`);
-      await push(chatroomRef, newMessage);
+      const messagesRef = ref(db, `chatrooms/${currentChatroom}/messages`);
+      const newMessageRef = await push(messagesRef, newMessage);
+
+      // Optionally send the message to a chatbot
+      const response = await fetchChatbotResponse(currentChatroom, newMessageRef.key || "", input.trim());
+      if (response) {
+        await push(messagesRef, { user: "Chatbot", text: response });
+      }
+
       setInput("");
     } catch (error) {
       console.error("Error sending message:", error);
@@ -113,6 +155,8 @@ export function ChatInterface() {
     try {
       const chatroomId = `chatroom_${Date.now()}`;
       await set(ref(db, `users/${user.uid}/chatrooms/${chatroomId}`), newChatroom);
+      await set(ref(db, `chatrooms/${chatroomId}`), { id: chatroomId, messages: {} });
+
       setCurrentChatroom(chatroomId); // Automatically switch to the new chatroom
     } catch (error) {
       console.error("Error creating chatroom:", error);
@@ -121,6 +165,21 @@ export function ChatInterface() {
         description: "Could not create the chatroom. Please try again.",
         variant: "destructive",
       });
+    }
+  };
+
+  const fetchChatbotResponse = async (chatroomId: string, messageId: string, message: string) => {
+    try {
+      const response = await fetch("/api/chatbot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chatroomId, messageId, message }),
+      });
+
+      const data = await response.json();
+      return data.reply;
+    } catch (error) {
+      console.error("Error fetching chatbot response:", error);
     }
   };
 
@@ -194,54 +253,44 @@ export function ChatInterface() {
 
         {/* Messages Area */}
         <CardContent className="flex-grow p-0">
-          <ScrollArea className="h-full p-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={cn(
-                  "flex items-start mb-4",
-                  message.user === (auth.currentUser?.displayName || auth.currentUser?.email)
-                    ? "justify-end"
-                    : "justify-start"
-                )}
-              >
-                <div
-                  className={cn(
-                    "rounded-lg p-2 max-w-[70%]",
-                    message.user === (auth.currentUser?.displayName || auth.currentUser?.email)
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted"
-                  )}
-                >
-                  <p className="font-bold">{message.user}:</p>
-                  <p>{message.text}</p>
-                </div>
-              </div>
-            ))}
-          </ScrollArea>
-        </CardContent>
+  <ScrollArea className="h-full p-4">
+    {messages.map((message) => (
+      <div
+        key={message.id}
+        className={cn(
+          "flex mb-2",
+          message.user === auth.currentUser?.displayName ? "justify-end" : "justify-start"
+        )}
+      >
+        <div
+          className={cn(
+            "max-w-[75%] px-4 py-2 rounded-lg text-sm shadow",
+            message.user === auth.currentUser?.displayName
+              ? "bg-blue-500 text-white rounded-tr-none"
+              : "bg-gray-200 text-black rounded-tl-none"
+          )}
+        >
+          <p className="font-bold mb-1">{message.user}</p>
+          <p>{message.text}</p>
+        </div>
+      </div>
+    ))}
+  </ScrollArea>
+</CardContent>
+
 
         {/* Input Area */}
         <CardFooter className="p-4 border-t">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSendMessage();
-            }}
-            className="flex w-full items-center space-x-2"
-          >
-            <Input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your message..."
-              className="flex-grow"
-            />
-            <Button type="submit">
-              <Send className="mr-2 h-4 w-4" />
-              Send
-            </Button>
-          </form>
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Type your message..."
+            className="flex-grow"
+          />
+          <Button className="ml-2" onClick={handleSendMessage}>
+            <Send className="mr-2 h-4 w-4" />
+            Send
+          </Button>
         </CardFooter>
       </Card>
     </div>
