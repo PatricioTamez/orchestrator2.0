@@ -2,12 +2,11 @@
 
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Send, LogOut, User, MessageSquare, Trash2 } from 'lucide-react';
+import { Send, LogOut, User } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
@@ -80,16 +79,7 @@ export function ChatInterface() {
   const handleSendMessage = async () => {
     const user = auth.currentUser;
     if (!user) return;
-  
-    if (!currentChatroom) {
-      toast({
-        title: "No chatroom selected",
-        description: "Please select or create a chatroom to send messages.",
-        variant: "destructive",
-      });
-      return;
-    }
-  
+
     if (!input.trim()) {
       toast({
         title: "Empty message",
@@ -98,21 +88,31 @@ export function ChatInterface() {
       });
       return;
     }
-  
-    const newMessage = {
-      user: user.displayName || user.email || "Anonymous",
-      text: input.trim(),
-    };
-  
+
     try {
-      const messagesRef = ref(db, `chatrooms/${currentChatroom}/messages`);
-      const newMessageRef = await push(messagesRef, newMessage);
-  
-      const response = await fetchChatbotResponse(currentChatroom, newMessageRef.key || "", input.trim());
-      if (response) {
-        await push(messagesRef, { user: "Chatbot", text: response });
+      let chatroomId = currentChatroom;
+
+      // Create a new chatroom if none exists
+      if (!currentChatroom) {
+        const newChatroom = {
+          name: `Chatroom ${chatrooms.length + 1}`,
+        };
+        chatroomId = `chatroom_${Date.now()}`;
+
+        await set(ref(db, `users/${user.uid}/chatrooms/${chatroomId}`), newChatroom);
+        await set(ref(db, `chatrooms/${chatroomId}`), { id: chatroomId, messages: {} });
+
+        setCurrentChatroom(chatroomId);
+        setChatrooms((prev) => [...prev, { id: chatroomId, name: newChatroom.name }]);
       }
-  
+
+      // Add message to the chatroom
+      const messagesRef = ref(db, `chatrooms/${chatroomId}/messages`);
+      await push(messagesRef, {
+        user: user.displayName || user.email || "Anonymous",
+        text: input.trim(),
+      });
+
       setInput("");
     } catch (error) {
       console.error("Error sending message:", error);
@@ -174,21 +174,6 @@ export function ChatInterface() {
     }
   };
 
-  const fetchChatbotResponse = async (chatroomId: string, messageId: string, message: string) => {
-    try {
-      const response = await fetch("/api/chatbot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chatroomId, messageId, message }),
-      });
-
-      const data = await response.json();
-      return data.reply;
-    } catch (error) {
-      console.error("Error fetching chatbot response:", error);
-    }
-  };
-
   const handleLogout = async () => {
     try {
       await auth.signOut();
@@ -235,8 +220,12 @@ export function ChatInterface() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <div className="p-2">
-                <p className="font-bold text-purple-600 dark:text-purple-400">{auth.currentUser?.displayName || "Anonymous"}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{auth.currentUser?.email}</p>
+                <p className="font-bold text-purple-600 dark:text-purple-400">
+                  {auth.currentUser?.displayName || "Anonymous"}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {auth.currentUser?.email}
+                </p>
               </div>
               <DropdownMenuItem onClick={handleLogout} className="text-red-500 dark:text-red-400">
                 <LogOut className="mr-2 h-4 w-4" />
@@ -252,7 +241,9 @@ export function ChatInterface() {
                 key={message.id}
                 className={cn(
                   "flex mb-4",
-                  message.user === auth.currentUser?.displayName ? "justify-end" : "justify-start"
+                  message.user === auth.currentUser?.displayName
+                    ? "justify-end"
+                    : "justify-start"
                 )}
               >
                 <div
@@ -260,38 +251,34 @@ export function ChatInterface() {
                     "max-w-[75%] px-4 py-2 rounded-lg text-sm shadow-md",
                     message.user === auth.currentUser?.displayName
                       ? "bg-purple-500 text-white"
-                      : "bg-indigo-100 text-gray-800 dark:bg-indigo-800 dark:text-gray-200"
+                      : "bg-indigo-100 text-gray-800 dark:bg-indigo-900 dark:text-gray-200"
                   )}
                 >
-                  <p className="font-bold mb-1">{message.user}</p>
+                  <p className="font-bold text-xs mb-1">{message.user}</p>
                   <p>{message.text}</p>
                 </div>
               </div>
             ))}
           </ScrollArea>
         </main>
-        <footer className="p-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-md">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSendMessage();
-            }}
-            className="flex items-center space-x-2"
+        <footer className="flex items-center p-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-md">
+          <Input
+            placeholder="Type a message..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+            className="flex-1"
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleSendMessage}
+            disabled={!input.trim()}
           >
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your message..."
-              className="flex-grow bg-white/50 dark:bg-gray-700/50 border-purple-300 dark:border-purple-600 focus:ring-purple-500 dark:focus:ring-purple-400"
-            />
-            <Button type="submit" className="bg-purple-500 hover:bg-purple-600 text-white">
-              <Send className="h-4 w-4 mr-2" />
-              Send
-            </Button>
-          </form>
+            <Send className="h-4 w-4" />
+          </Button>
         </footer>
       </div>
     </div>
   );
 }
-

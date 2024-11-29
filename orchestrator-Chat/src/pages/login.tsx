@@ -86,7 +86,7 @@ const Login = () => {
   <div className="w-full max-w-sm bg-white shadow-lg rounded-xl p-4 space-y-4">
     <div className="text-center">
       <img src="src/assets/softtek2.png" alt="Logo" className="mx-auto h-14 w-auto" />
-      <h2 className="mt-1 text-lg font-bold">Welcome to Orchestrator</h2>
+      <h2 className="mt-1 text-grey font-bold">Welcome to Orchestrator</h2>
     </div>
 
     <Button variant="outline" className="w-full flex items-center space-x-2" onClick={handleGoogleSignIn}>
