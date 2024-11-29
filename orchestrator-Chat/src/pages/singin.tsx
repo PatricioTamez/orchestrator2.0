@@ -89,50 +89,52 @@ const SignUp = () => {
 
   return (
     <div
-      className="relative min-h-screen flex items-center justify-center bg-gray-50"
+      className="relative min-h-screen flex items-center justify-center bg-cover bg-center"
+      style={{ backgroundImage: `url('src/assets/sottekback.jpg')` }}
     >
-      <div className="w-full max-w-sm bg-white shadow-lg rounded-xl p-4 space-y-4">
+      <div className="w-full max-w-md bg-white shadow-lg rounded-xl p-4 space-y-4 bg-opacity-90 backdrop-blur-sm">
         <div className="text-center">
           <img
-            src="/assets/softtek.png"
+            src="src/assets/softtek2.png"
             alt="Logo"
             className="mx-auto h-14 w-auto"
           />
           <h2 className="mt-1 text-sm font-semibold text-gray-900">
-            Bienvenido a Frida Codemod
+            Welcome to Orchestrator
           </h2>
           <p className="mt-1 text-xs text-gray-600">
-            Crea tu cuenta para empezar a automatizar
+            Crea tu cuenta para empezar a chatear
           </p>
         </div>
 
-        {/* Google Sign-Up Button */}
-        <Button
-          variant="outline"
-          className="w-full flex items-center justify-center text-xs"
-          onClick={handleGoogleSignUp}
-        >
-          <img
-            src="/assets/google.svg"
-            alt="Google"
-            className="w-4 h-4 mr-2"
-          />
-          Sign up with Google
-        </Button>
+        {/* Buttons in two columns */}
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            variant="outline"
+            className="flex items-center justify-center text-xs"
+            onClick={handleGoogleSignUp}
+          >
+            <img
+              src="src/assets/google.jpg"
+              alt="Google"
+              className="w-4 h-4 mr-2"
+            />
+            Sign up with Google
+          </Button>
 
-        {/* Microsoft Sign-Up Button */}
-        <Button
-          variant="outline"
-          className="w-full flex items-center justify-center mt-1 text-xs"
-          onClick={handleMicrosoftSignUp}
-        >
-          <img
-            src="/assets/microsoft.svg"
-            alt="Microsoft"
-            className="w-4 h-4 mr-2"
-          />
-          Sign up with Microsoft
-        </Button>
+          <Button
+            variant="outline"
+            className="flex items-center justify-center text-xs"
+            onClick={handleMicrosoftSignUp}
+          >
+            <img
+              src="src/assets/microsoft.png"
+              alt="Microsoft"
+              className="w-4 h-4 mr-2"
+            />
+            Sign up with Microsoft
+          </Button>
+        </div>
 
         {/* Separator */}
         <div className="flex items-center justify-center space-x-2">
@@ -141,7 +143,7 @@ const SignUp = () => {
           <div className="flex-1 border-t border-gray-300"></div>
         </div>
 
-        {/* Sign-Up Form */}
+        {/* Form */}
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
             <Card className="w-full">
@@ -153,35 +155,35 @@ const SignUp = () => {
               </CardHeader>
 
               <CardContent className="space-y-2">
-                {/* First Name Input */}
-                <FormField
-                  control={form.control}
-                  name="Fname"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">First Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="First Name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Last Name Input */}
-                <FormField
-                  control={form.control}
-                  name="Lname"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">Last Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Last Name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {/* First Name and Last Name in two columns */}
+                <div className="grid grid-cols-2 gap-2">
+                  <FormField
+                    control={form.control}
+                    name="Fname"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">First Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="First Name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="Lname"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Last Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Last Name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 {/* Email Input */}
                 <FormField
@@ -218,7 +220,6 @@ const SignUp = () => {
                 />
               </CardContent>
 
-              {/* Submit and Redirect Buttons */}
               <CardFooter className="flex flex-col space-y-1">
                 <Button type="submit" className="w-full text-xs">
                   Sign Up
