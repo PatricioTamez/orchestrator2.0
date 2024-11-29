@@ -79,7 +79,7 @@ export function ChatInterface() {
   const handleSendMessage = async () => {
     const user = auth.currentUser;
     if (!user) return;
-
+  
     if (!input.trim()) {
       toast({
         title: "Empty message",
@@ -88,31 +88,49 @@ export function ChatInterface() {
       });
       return;
     }
-
+  
     try {
       let chatroomId = currentChatroom;
-
+  
       // Create a new chatroom if none exists
       if (!currentChatroom) {
         const newChatroom = {
           name: `Chatroom ${chatrooms.length + 1}`,
         };
         chatroomId = `chatroom_${Date.now()}`;
-
+  
         await set(ref(db, `users/${user.uid}/chatrooms/${chatroomId}`), newChatroom);
         await set(ref(db, `chatrooms/${chatroomId}`), { id: chatroomId, messages: {} });
-
+  
         setCurrentChatroom(chatroomId);
         setChatrooms((prev) => [...prev, { id: chatroomId, name: newChatroom.name }]);
       }
-
-      // Add message to the chatroom
+  
+      // Add user message to the chatroom
       const messagesRef = ref(db, `chatrooms/${chatroomId}/messages`);
       await push(messagesRef, {
         user: user.displayName || user.email || "Anonymous",
         text: input.trim(),
       });
-
+  
+      // Set a predefined response from the System
+      const responses = [
+        "Hello! How can I help you today?",
+        "Hi there! What's on your mind?",
+        "Goodbye for now! Have a great day!",
+        "How are you doing today?",
+        "I'm here if you need any help!",
+      ];
+  
+      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+  
+      // Add system's random response to the chatroom
+      await push(messagesRef, {
+        user: "System",
+        text: randomResponse,
+      });
+  
+      // Clear input field after sending
       setInput("");
     } catch (error) {
       console.error("Error sending message:", error);
