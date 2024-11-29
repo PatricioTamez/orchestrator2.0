@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Send, LogOut, User } from "lucide-react";
+import { Plus, Send, LogOut, User, MessageSquare, Trash2 } from 'lucide-react';
 
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { auth, db } from "@/firebase/firebaseconfig";
-import { ref, onValue, push, set } from "firebase/database";
+import { ref, onValue, push, set, remove } from "firebase/database";
 import { useAuthContext } from "@/hooks/AuthContext";
 import {
   DropdownMenu,
@@ -20,6 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Sidebar } from "./sidebar";
 
 interface Message {
   id: string;
@@ -45,7 +46,6 @@ export function ChatInterface() {
     const user = auth.currentUser;
     if (!user) return;
 
-    // Fetch chatrooms for the user
     const chatroomsRef = ref(db, `users/${user.uid}/chatrooms`);
     const unsubscribe = onValue(chatroomsRef, (snapshot) => {
       const data = snapshot.val();
@@ -54,7 +54,6 @@ export function ChatInterface() {
         : [];
       setChatrooms(loadedChatrooms);
 
-      // Automatically select the first chatroom if none is selected
       if (loadedChatrooms.length && !currentChatroom) {
         setCurrentChatroom(loadedChatrooms[0].id);
       }
@@ -66,7 +65,6 @@ export function ChatInterface() {
   React.useEffect(() => {
     if (!currentChatroom) return;
 
-    // Subscribe to the current chatroom
     const messagesRef = ref(db, `chatrooms/${currentChatroom}/messages`);
     const unsubscribe = onValue(messagesRef, (snapshot) => {
       const data = snapshot.val();
@@ -82,33 +80,16 @@ export function ChatInterface() {
   const handleSendMessage = async () => {
     const user = auth.currentUser;
     if (!user) return;
-
-    // Check if no chatrooms exist
-    if (chatrooms.length === 0) {
-      const newChatroom = {
-        name: `Chatroom 1`,
-      };
-
-      try {
-        const chatroomId = `chatroom_${Date.now()}`;
-        await set(ref(db, `users/${user.uid}/chatrooms/${chatroomId}`), newChatroom);
-        await set(ref(db, `chatrooms/${chatroomId}`), { id: chatroomId, messages: {} });
-
-        setCurrentChatroom(chatroomId); // Automatically switch to the new chatroom
-        setChatrooms([{ id: chatroomId, ...newChatroom }]); // Update local state
-      } catch (error) {
-        console.error("Error creating chatroom:", error);
-        toast({
-          title: "Chatroom creation failed",
-          description: "Could not create the chatroom. Please try again.",
-          variant: "destructive",
-        });
-        return;
-      }
+  
+    if (!currentChatroom) {
+      toast({
+        title: "No chatroom selected",
+        description: "Please select or create a chatroom to send messages.",
+        variant: "destructive",
+      });
+      return;
     }
-
-    if (!currentChatroom) return;
-
+  
     if (!input.trim()) {
       toast({
         title: "Empty message",
@@ -117,22 +98,21 @@ export function ChatInterface() {
       });
       return;
     }
-
+  
     const newMessage = {
       user: user.displayName || user.email || "Anonymous",
       text: input.trim(),
     };
-
+  
     try {
       const messagesRef = ref(db, `chatrooms/${currentChatroom}/messages`);
       const newMessageRef = await push(messagesRef, newMessage);
-
-      // Optionally send the message to a chatbot
+  
       const response = await fetchChatbotResponse(currentChatroom, newMessageRef.key || "", input.trim());
       if (response) {
         await push(messagesRef, { user: "Chatbot", text: response });
       }
-
+  
       setInput("");
     } catch (error) {
       console.error("Error sending message:", error);
@@ -157,12 +137,38 @@ export function ChatInterface() {
       await set(ref(db, `users/${user.uid}/chatrooms/${chatroomId}`), newChatroom);
       await set(ref(db, `chatrooms/${chatroomId}`), { id: chatroomId, messages: {} });
 
-      setCurrentChatroom(chatroomId); // Automatically switch to the new chatroom
+      setCurrentChatroom(chatroomId);
     } catch (error) {
       console.error("Error creating chatroom:", error);
       toast({
         title: "Chatroom creation failed",
         description: "Could not create the chatroom. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteChatroom = async (chatroomId: string) => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      await remove(ref(db, `users/${user.uid}/chatrooms/${chatroomId}`));
+      await remove(ref(db, `chatrooms/${chatroomId}`));
+
+      if (currentChatroom === chatroomId) {
+        setCurrentChatroom(chatrooms[0]?.id || "");
+      }
+
+      toast({
+        title: "Chatroom deleted",
+        description: "The chatroom has been successfully deleted.",
+      });
+    } catch (error) {
+      console.error("Error deleting chatroom:", error);
+      toast({
+        title: "Chatroom deletion failed",
+        description: "Could not delete the chatroom. Please try again.",
         variant: "destructive",
       });
     }
@@ -203,13 +209,22 @@ export function ChatInterface() {
   };
 
   return (
-    <div className="w-full min-h-screen bg-background flex flex-col items-center justify-center">
-      <Card className="w-full max-w-2xl mx-auto h-[600px] flex flex-col">
-        {/* Header */}
-        <CardHeader className="flex justify-between items-center p-4 border-b">
+    <div className="flex h-screen bg-gradient-to-br from-purple-100 via-pink-100 to-indigo-200 dark:from-purple-900 dark:via-pink-900 dark:to-indigo-800">
+      <Sidebar
+        chatrooms={chatrooms}
+        currentChatroom={currentChatroom}
+        onSelectChatroom={setCurrentChatroom}
+        onAddChatroom={handleAddChatroom}
+        onDeleteChatroom={handleDeleteChatroom}
+      />
+      <div className="flex-1 flex flex-col">
+        <header className="flex justify-between items-center p-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-md">
+          <h2 className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+            {chatrooms.find((room) => room.id === currentChatroom)?.name || "Chat Interface"}
+          </h2>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 rounded-full absolute top-4 right-4">
+              <Button variant="ghost" className="h-8 w-8 rounded-full">
                 <Avatar>
                   <AvatarImage src={auth.currentUser?.photoURL || undefined} alt="User avatar" />
                   <AvatarFallback>
@@ -220,79 +235,63 @@ export function ChatInterface() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <div className="p-2">
-                <p className="font-bold">{auth.currentUser?.displayName || "Anonymous"}</p>
-                <p className="text-sm text-muted-foreground">{auth.currentUser?.email}</p>
+                <p className="font-bold text-purple-600 dark:text-purple-400">{auth.currentUser?.displayName || "Anonymous"}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{auth.currentUser?.email}</p>
               </div>
-              <DropdownMenuItem onClick={handleLogout}>
+              <DropdownMenuItem onClick={handleLogout} className="text-red-500 dark:text-red-400">
                 <LogOut className="mr-2 h-4 w-4" />
                 Log out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <h2 className="text-2xl font-bold">Chat Interface</h2>
-        </CardHeader>
-
-        {/* Chatroom Selector */}
-        <div className="p-4 flex items-center justify-between border-b  text-white">
-          <select
-            className="border rounded p-2 w-full"
-            value={currentChatroom}
-            onChange={(e) => setCurrentChatroom(e.target.value)}
-          >
-            {chatrooms.map((chatroom) => (
-              <option key={chatroom.id} value={chatroom.id}>
-                {chatroom.name}
-              </option>
+        </header>
+        <main className="flex-1 overflow-hidden bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm">
+          <ScrollArea className="h-full p-4">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={cn(
+                  "flex mb-4",
+                  message.user === auth.currentUser?.displayName ? "justify-end" : "justify-start"
+                )}
+              >
+                <div
+                  className={cn(
+                    "max-w-[75%] px-4 py-2 rounded-lg text-sm shadow-md",
+                    message.user === auth.currentUser?.displayName
+                      ? "bg-purple-500 text-white"
+                      : "bg-indigo-100 text-gray-800 dark:bg-indigo-800 dark:text-gray-200"
+                  )}
+                >
+                  <p className="font-bold mb-1">{message.user}</p>
+                  <p>{message.text}</p>
+                </div>
+              </div>
             ))}
-          </select>
-          <Button className="ml-2" onClick={handleAddChatroom}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Chatroom
-          </Button>
-        </div>
-
-        {/* Messages Area */}
-        <CardContent className="flex-grow p-0">
-  <ScrollArea className="h-full p-4">
-    {messages.map((message) => (
-      <div
-        key={message.id}
-        className={cn(
-          "flex mb-2",
-          message.user === auth.currentUser?.displayName ? "justify-end" : "justify-start"
-        )}
-      >
-        <div
-          className={cn(
-            "max-w-[75%] px-4 py-2 rounded-lg text-sm shadow",
-            message.user === auth.currentUser?.displayName
-              ? "bg-blue-500 text-white rounded-tr-none"
-              : "bg-gray-200 text-black rounded-tl-none"
-          )}
-        >
-          <p className="font-bold mb-1">{message.user}</p>
-          <p>{message.text}</p>
-        </div>
+          </ScrollArea>
+        </main>
+        <footer className="p-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-md">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSendMessage();
+            }}
+            className="flex items-center space-x-2"
+          >
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Type your message..."
+              className="flex-grow bg-white/50 dark:bg-gray-700/50 border-purple-300 dark:border-purple-600 focus:ring-purple-500 dark:focus:ring-purple-400"
+            />
+            <Button type="submit" className="bg-purple-500 hover:bg-purple-600 text-white">
+              <Send className="h-4 w-4 mr-2" />
+              Send
+            </Button>
+          </form>
+        </footer>
       </div>
-    ))}
-  </ScrollArea>
-</CardContent>
-
-
-        {/* Input Area */}
-        <CardFooter className="p-4 border-t">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your message..."
-            className="flex-grow"
-          />
-          <Button className="ml-2" onClick={handleSendMessage}>
-            <Send className="mr-2 h-4 w-4" />
-            Send
-          </Button>
-        </CardFooter>
-      </Card>
     </div>
   );
 }
+

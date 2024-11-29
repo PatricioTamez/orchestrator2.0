@@ -8,11 +8,11 @@ import {
 //import useAuthContext from "@/hooks/useAuthContext";
 import Login from "@/pages/login";
 import SignUp from "@/pages/singin";
-import ChatPage from "@/pages/chat/page"
+import ChatPage from "@/pages/page"
 import { useAuthContext } from "@/hooks/AuthContext";
 import { Label } from "@radix-ui/react-label";
 import { ReactNode } from "react";
-import RootLayout from './chat/layout';
+/*import RootLayout from './chat/layout';*/
 
 
 
