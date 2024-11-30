@@ -92,18 +92,14 @@ export function ChatInterface() {
     try {
       let chatroomId = currentChatroom;
   
-      // Create a new chatroom if none exists
-      if (!currentChatroom) {
+      // Persist the chatroom to the database if it doesn't exist yet
+      if (!chatrooms.some((room) => room.id === chatroomId)) {
         const newChatroom = {
           name: `Chatroom ${chatrooms.length + 1}`,
         };
-        chatroomId = `chatroom_${Date.now()}`;
   
         await set(ref(db, `users/${user.uid}/chatrooms/${chatroomId}`), newChatroom);
         await set(ref(db, `chatrooms/${chatroomId}`), { id: chatroomId, messages: {} });
-  
-        setCurrentChatroom(chatroomId);
-        setChatrooms((prev) => [...prev, { id: chatroomId, name: newChatroom.name }]);
       }
   
       // Add user message to the chatroom
@@ -142,29 +138,55 @@ export function ChatInterface() {
     }
   };
 
-  const handleAddChatroom = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
+const handleAddChatroom = async () => {
+  const user = auth.currentUser;
+  if (!user) return;
 
-    const newChatroom = {
-      name: `Chatroom ${chatrooms.length + 1}`,
-    };
+  const newChatroom = {
+    name: `Chatroom ${chatrooms.length + 1}`,
+  };
 
-    try {
-      const chatroomId = `chatroom_${Date.now()}`;
+  try {
+    const chatroomId = `chatroom_${Date.now()}`;
+
+    // Add chatroom to local state but don't persist to Firebase yet
+    setChatrooms((prev) => [...prev, { id: chatroomId, name: newChatroom.name }]);
+    setCurrentChatroom(chatroomId);
+
+    // Wait for the user to send a message before saving to Firebase
+    const saveChatroom = async () => {
       await set(ref(db, `users/${user.uid}/chatrooms/${chatroomId}`), newChatroom);
       await set(ref(db, `chatrooms/${chatroomId}`), { id: chatroomId, messages: {} });
+    };
 
-      setCurrentChatroom(chatroomId);
-    } catch (error) {
-      console.error("Error creating chatroom:", error);
-      toast({
-        title: "Chatroom creation failed",
-        description: "Could not create the chatroom. Please try again.",
-        variant: "destructive",
+    // Check if the chatroom already exists in Firebase
+    const unsubscribe = onValue(ref(db, `chatrooms/${chatroomId}`), async (snapshot) => {
+      if (snapshot.exists()) {
+        // Chatroom already exists, no need to save again
+        unsubscribe();
+        return;
+      }
+
+      // Listen for the first message being sent
+      const messagesRef = ref(db, `chatrooms/${chatroomId}/messages`);
+      onValue(messagesRef, async (messageSnapshot) => {
+        if (messageSnapshot.exists()) {
+          // Save the chatroom only when at least one message exists
+          await saveChatroom();
+          unsubscribe();
+        }
       });
-    }
-  };
+    });
+  } catch (error) {
+    console.error("Error creating chatroom:", error);
+    toast({
+      title: "Chatroom creation failed",
+      description: "Could not create the chatroom. Please try again.",
+      variant: "destructive",
+    });
+  }
+};
+
 
   const handleDeleteChatroom = async (chatroomId: string) => {
     const user = auth.currentUser;
